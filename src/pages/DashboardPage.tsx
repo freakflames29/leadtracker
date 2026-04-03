@@ -17,6 +17,13 @@ const filterConfig: { label: FilterType; icon: React.ReactNode; activeClass: str
   { label: 'Cold', icon: <Snowflake className="w-3.5 h-3.5" />, activeClass: 'bg-[#111E2A] text-[#80C4FF] border-[#5BA8FF]/40' },
 ];
 
+const skeletonStats = [
+  'bg-background-secondary',
+  'bg-[#2A1515]',
+  'bg-[#2A2010]',
+  'bg-[#111E2A]',
+];
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -86,45 +93,66 @@ export default function DashboardPage() {
 
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-        {[
-          { label: 'Total', value: stats.total, color: 'text-text-primary', bg: 'bg-background-secondary' },
-          { label: 'Hot', value: stats.hot, color: 'text-[#FF8080]', bg: 'bg-[#2A1515]' },
-          { label: 'Warm', value: stats.warm, color: 'text-[#FFD080]', bg: 'bg-[#2A2010]' },
-          { label: 'Cold', value: stats.cold, color: 'text-[#80C4FF]', bg: 'bg-[#111E2A]' },
-        ].map((stat) => (
-          <div
-            key={stat.label}
-            className={`${stat.bg} border border-border-subtle rounded-2xl px-5 py-4`}
-          >
-            <p className="text-xs text-text-disabled font-medium uppercase tracking-wider mb-1">{stat.label}</p>
-            <p className={`text-3xl font-bold font-display ${stat.color}`}>{stat.value}</p>
-          </div>
-        ))}
+        {loading ? (
+          skeletonStats.map((bgClass, index) => (
+            <div
+              key={index}
+              className={`${bgClass} border border-border-subtle rounded-2xl px-5 py-4 animate-pulse`}
+            >
+              <div className="h-3 w-16 rounded bg-background-elevated/80 mb-3" />
+              <div className="h-8 w-12 rounded bg-background-elevated/80" />
+            </div>
+          ))
+        ) : (
+          [
+            { label: 'Total', value: stats.total, color: 'text-text-primary', bg: 'bg-background-secondary' },
+            { label: 'Hot', value: stats.hot, color: 'text-[#FF8080]', bg: 'bg-[#2A1515]' },
+            { label: 'Warm', value: stats.warm, color: 'text-[#FFD080]', bg: 'bg-[#2A2010]' },
+            { label: 'Cold', value: stats.cold, color: 'text-[#80C4FF]', bg: 'bg-[#111E2A]' },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              className={`${stat.bg} border border-border-subtle rounded-2xl px-5 py-4`}
+            >
+              <p className="text-xs text-text-disabled font-medium uppercase tracking-wider mb-1">{stat.label}</p>
+              <p className={`text-3xl font-bold font-display ${stat.color}`}>{stat.value}</p>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Filter tabs */}
       <div className="flex items-center gap-2 mb-6 flex-wrap">
-        {filterConfig.map(({ label, icon, activeClass }) => (
-          <button
-            key={label}
-            onClick={() => setFilter(label)}
-            className={`
-              flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium border transition-all duration-200
-              ${filter === label
-                ? activeClass
-                : 'bg-background-elevated border-border-subtle text-text-secondary hover:text-text-primary hover:border-border-default'
-              }
-            `}
-          >
-            {icon}
-            {label}
-            {label !== 'All' && (
-              <span className="text-xs opacity-60 ml-0.5">
-                ({label === 'Hot' ? stats.hot : label === 'Warm' ? stats.warm : stats.cold})
-              </span>
-            )}
-          </button>
-        ))}
+        {loading ? (
+          filterConfig.map(({ label }) => (
+            <div
+              key={label}
+              className="h-10 w-24 rounded-xl border border-border-subtle bg-background-elevated animate-pulse"
+            />
+          ))
+        ) : (
+          filterConfig.map(({ label, icon, activeClass }) => (
+            <button
+              key={label}
+              onClick={() => setFilter(label)}
+              className={`
+                flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium border transition-all duration-200
+                ${filter === label
+                  ? activeClass
+                  : 'bg-background-elevated border-border-subtle text-text-secondary hover:text-text-primary hover:border-border-default'
+                }
+              `}
+            >
+              {icon}
+              {label}
+              {label !== 'All' && (
+                <span className="text-xs opacity-60 ml-0.5">
+                  ({label === 'Hot' ? stats.hot : label === 'Warm' ? stats.warm : stats.cold})
+                </span>
+              )}
+            </button>
+          ))
+        )}
       </div>
 
       {/* Lead grid */}
@@ -135,12 +163,32 @@ export default function DashboardPage() {
       )}
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-background-secondary border border-border-subtle flex items-center justify-center mb-4">
-            <LayoutGrid className="w-7 h-7 text-text-disabled" />
-          </div>
-          <h3 className="text-base font-semibold text-text-secondary">Loading leads</h3>
-          <p className="text-sm text-text-disabled mt-1">Fetching your latest data from Supabase.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div
+              key={index}
+              className="bg-background-secondary border border-border-subtle rounded-2xl p-5 animate-pulse"
+            >
+              <div className="flex items-start justify-between gap-3 mb-5">
+                <div className="flex-1">
+                  <div className="h-5 w-32 rounded bg-background-elevated mb-2" />
+                  <div className="h-3 w-24 rounded bg-background-elevated" />
+                </div>
+                <div className="h-7 w-16 rounded-full bg-background-elevated" />
+              </div>
+
+              <div className="space-y-3 mb-5">
+                <div className="h-3 w-full rounded bg-background-elevated" />
+                <div className="h-3 w-5/6 rounded bg-background-elevated" />
+                <div className="h-3 w-2/3 rounded bg-background-elevated" />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="h-3 w-20 rounded bg-background-elevated" />
+                <div className="h-8 w-24 rounded-xl bg-background-elevated" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : filtered.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

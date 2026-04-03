@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import Layout from '../components/layout/Layout';
@@ -13,12 +13,15 @@ export default function ProfilePage() {
   const user = useAppSelector((s) => s.auth.user);
   const leads = useAppSelector((s) => s.leads.leads);
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(leads.length === 0);
   const droppedLeads = leads.filter((l) => l.dropped);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadLeads = async () => {
+      setLoading(true);
+
       try {
         const data = await fetchLeads();
 
@@ -27,6 +30,10 @@ export default function ProfilePage() {
         }
       } catch {
         // Keep the profile usable even if lead refresh fails here.
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
@@ -76,16 +83,28 @@ export default function ProfilePage() {
 
         {/* Stats summary */}
         <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: 'Active Leads', value: leads.filter((l) => !l.dropped).length, color: 'text-text-primary' },
-            { label: 'Follow-ups', value: leads.reduce((acc, l) => acc + l.followUps.length, 0), color: 'text-brand-primary' },
-            { label: 'Dropped', value: droppedLeads.length, color: 'text-semantic-error' },
-          ].map((s) => (
-            <div key={s.label} className="bg-background-secondary border border-border-subtle rounded-2xl p-4 text-center">
-              <p className={`text-2xl font-bold font-display ${s.color}`}>{s.value}</p>
-              <p className="text-xs text-text-disabled mt-1">{s.label}</p>
-            </div>
-          ))}
+          {loading ? (
+            Array.from({ length: 3 }).map((_, index) => (
+              <div
+                key={index}
+                className="bg-background-secondary border border-border-subtle rounded-2xl p-4 text-center animate-pulse"
+              >
+                <div className="h-7 w-10 rounded bg-background-elevated mx-auto mb-2" />
+                <div className="h-3 w-20 rounded bg-background-elevated mx-auto" />
+              </div>
+            ))
+          ) : (
+            [
+              { label: 'Active Leads', value: leads.filter((l) => !l.dropped).length, color: 'text-text-primary' },
+              { label: 'Follow-ups', value: leads.reduce((acc, l) => acc + l.followUps.length, 0), color: 'text-brand-primary' },
+              { label: 'Dropped', value: droppedLeads.length, color: 'text-semantic-error' },
+            ].map((s) => (
+              <div key={s.label} className="bg-background-secondary border border-border-subtle rounded-2xl p-4 text-center">
+                <p className={`text-2xl font-bold font-display ${s.color}`}>{s.value}</p>
+                <p className="text-xs text-text-disabled mt-1">{s.label}</p>
+              </div>
+            ))
+          )}
         </div>
 
         {/* Dropped leads */}
@@ -100,7 +119,26 @@ export default function ProfilePage() {
             </span>
           </div>
 
-          {droppedLeads.length === 0 ? (
+          {loading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="w-full flex items-center gap-4 bg-background-elevated border border-border-subtle rounded-xl px-4 py-3.5 animate-pulse"
+                >
+                  <div className="w-8 h-8 rounded-full bg-background-secondary border border-border-subtle flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="h-4 w-32 rounded bg-background-secondary mb-2" />
+                    <div className="h-3 w-40 rounded bg-background-secondary" />
+                  </div>
+                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                    <div className="h-6 w-14 rounded-full bg-background-secondary" />
+                    <div className="h-3 w-12 rounded bg-background-secondary" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : droppedLeads.length === 0 ? (
             <div className="flex flex-col items-center py-8 text-center">
               <p className="text-sm text-text-disabled">No dropped leads yet.</p>
             </div>
