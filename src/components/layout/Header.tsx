@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { logout } from '../../store/authSlice';
+import { supabase } from '../../services/supabase/supabase';
 import { LayoutDashboard, PlusCircle, User, LogOut, TrendingUp } from 'lucide-react';
 
 export default function Header() {
@@ -15,7 +16,8 @@ export default function Header() {
     { path: '/profile', label: 'Profile', icon: User },
   ];
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     dispatch(logout());
     navigate('/login');
   };

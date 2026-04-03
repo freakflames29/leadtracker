@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '../store/hooks';
 import { login } from '../store/authSlice';
 import { supabase } from '../services/supabase/supabase';
+import { ensureCurrentUserProfile } from '../services/leads';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import { Mail, Lock, TrendingUp } from 'lucide-react';
@@ -53,7 +54,8 @@ export default function LoginPage() {
 
       if (data.user) {
         const name = data.user.user_metadata?.full_name || email.split('@')[0];
-        dispatch(login({ name, email: data.user.email || email }));
+        await ensureCurrentUserProfile();
+        dispatch(login({ id: data.user.id, name, email: data.user.email || email }));
         navigate('/dashboard');
       }
     } catch (err: any) {

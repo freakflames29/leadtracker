@@ -7,8 +7,8 @@ import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import Textarea from '../components/ui/Textarea';
 import Button from '../components/ui/Button';
-import type { Lead, LeadType } from '../types';
-import { v4 as uuidv4 } from 'uuid';
+import type { LeadType } from '../types';
+import { createLead } from '../services/leads';
 import { ArrowLeft, CheckCircle } from 'lucide-react';
 
 interface FormValues {
@@ -39,6 +39,8 @@ export default function AddLeadPage() {
   const dispatch = useAppDispatch();
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [createdLeadId, setCreatedLeadId] = useState('');
 
   const [values, setValues] = useState<FormValues>({
     name: '',
@@ -55,6 +57,7 @@ export default function AddLeadPage() {
   ) => {
     setValues((v) => ({ ...v, [field]: e.target.value }));
     setErrors((err) => ({ ...err, [field]: undefined }));
+    setSubmitError('');
   };
 
   const validate = (): boolean => {
@@ -72,24 +75,27 @@ export default function AddLeadPage() {
     e.preventDefault();
     if (!validate()) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 600));
+    setSubmitError('');
 
-    const newLead: Lead = {
-      id: uuidv4(),
-      name: values.name.trim(),
-      phone: values.phone.trim(),
-      type: values.type as LeadType,
-      category: values.category.trim(),
-      feedback: values.feedback.trim(),
-      followUpDate: values.followUpDate,
-      followUps: [],
-      dropped: false,
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      const newLead = await createLead({
+        name: values.name.trim(),
+        phone: values.phone.trim(),
+        type: values.type as LeadType,
+        category: values.category.trim(),
+        feedback: values.feedback.trim(),
+        followUpDate: values.followUpDate,
+      });
 
-    dispatch(addLead(newLead));
-    setSubmitted(true);
-    setLoading(false);
+      dispatch(addLead(newLead));
+      setCreatedLeadId(newLead.id);
+      setSubmitted(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to save lead.';
+      setSubmitError(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (submitted) {
@@ -104,10 +110,10 @@ export default function AddLeadPage() {
             <strong className="text-text-primary">{values.name}</strong> has been added to your leads.
           </p>
           <div className="flex gap-3">
-            <Button variant="secondary" onClick={() => { setSubmitted(false); setValues({ name: '', phone: '', type: '', category: '', feedback: '', followUpDate: '' }); }}>
+            <Button variant="secondary" onClick={() => { setSubmitted(false); setCreatedLeadId(''); setValues({ name: '', phone: '', type: '', category: '', feedback: '', followUpDate: '' }); }}>
               Add Another
             </Button>
-            <Button onClick={() => navigate('/dashboard')}>Go to Dashboard</Button>
+            <Button onClick={() => navigate(`/lead/${createdLeadId}`)}>View Lead</Button>
           </div>
         </div>
       </Layout>
@@ -197,6 +203,12 @@ export default function AddLeadPage() {
               />
             </div>
           </div>
+
+          {submitError && (
+            <div className="mb-6 rounded-2xl border border-semantic-error/30 bg-semantic-error-bg px-4 py-3">
+              <p className="text-sm text-semantic-error">{submitError}</p>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-3 justify-end">

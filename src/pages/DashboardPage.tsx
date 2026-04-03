@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAppSelector } from '../store/hooks';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { setLeads } from '../store/leadsSlice';
 import Layout from '../components/layout/Layout';
 import LeadCard from '../components/ui/LeadCard';
 import Button from '../components/ui/Button';
+import { fetchLeads } from '../services/leads';
 import { PlusCircle, Flame, Thermometer, Snowflake, LayoutGrid } from 'lucide-react';
 
 type FilterType = 'All' | 'Hot' | 'Warm' | 'Cold';
@@ -17,8 +19,42 @@ const filterConfig: { label: FilterType; icon: React.ReactNode; activeClass: str
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const leads = useAppSelector((s) => s.leads.leads);
   const [filter, setFilter] = useState<FilterType>('All');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadLeads = async () => {
+      setLoading(true);
+      setError('');
+
+      try {
+        const data = await fetchLeads();
+
+        if (!cancelled) {
+          dispatch(setLeads(data));
+        }
+      } catch (fetchError) {
+        if (!cancelled) {
+          setError(fetchError instanceof Error ? fetchError.message : 'Failed to load leads.');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadLeads();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dispatch]);
 
   const activeLeads = leads.filter((l) => !l.dropped);
   const filtered = filter === 'All' ? activeLeads : activeLeads.filter((l) => l.type === filter);
@@ -92,7 +128,21 @@ export default function DashboardPage() {
       </div>
 
       {/* Lead grid */}
-      {filtered.length > 0 ? (
+      {error && (
+        <div className="mb-6 rounded-2xl border border-semantic-error/30 bg-semantic-error-bg px-4 py-3">
+          <p className="text-sm text-semantic-error">{error}</p>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-background-secondary border border-border-subtle flex items-center justify-center mb-4">
+            <LayoutGrid className="w-7 h-7 text-text-disabled" />
+          </div>
+          <h3 className="text-base font-semibold text-text-secondary">Loading leads</h3>
+          <p className="text-sm text-text-disabled mt-1">Fetching your latest data from Supabase.</p>
+        </div>
+      ) : filtered.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((lead) => (
             <LeadCard

@@ -1,15 +1,41 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAppSelector } from '../store/hooks';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 import Layout from '../components/layout/Layout';
 import Badge from '../components/ui/Badge';
+import { fetchLeads } from '../services/leads';
+import { setLeads } from '../store/leadsSlice';
 import { format } from 'date-fns';
 import { User, Mail, Calendar, Phone, Tag, XCircle } from 'lucide-react';
 
 export default function ProfilePage() {
+  const dispatch = useAppDispatch();
   const user = useAppSelector((s) => s.auth.user);
   const leads = useAppSelector((s) => s.leads.leads);
   const navigate = useNavigate();
   const droppedLeads = leads.filter((l) => l.dropped);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadLeads = async () => {
+      try {
+        const data = await fetchLeads();
+
+        if (!cancelled) {
+          dispatch(setLeads(data));
+        }
+      } catch {
+        // Keep the profile usable even if lead refresh fails here.
+      }
+    };
+
+    void loadLeads();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dispatch]);
 
   return (
     <Layout>

@@ -1,13 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { dropLead, addFollowUp } from '../store/leadsSlice';
+import { dropLead, addFollowUp, upsertLead } from '../store/leadsSlice';
 import Layout from '../components/layout/Layout';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import Timeline from '../components/ui/Timeline';
 import type { FollowUp } from '../types';
-import { v4 as uuidv4 } from 'uuid';
+import { createLeadFollowUp, dropLeadById, fetchLeadById } from '../services/leads';
 import { format } from 'date-fns';
 import {
   ArrowLeft, Phone, Calendar, Tag, MessageSquare,
@@ -23,12 +23,73 @@ export default function LeadDetailsPage() {
   const [comment, setComment] = useState('');
   const [commentError, setCommentError] = useState('');
   const [confirmDrop, setConfirmDrop] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [pageError, setPageError] = useState('');
+
+  useEffect(() => {
+    if (!id) {
+      setPageLoading(false);
+      setPageError('Lead not found.');
+      return;
+    }
+
+    if (lead) {
+      setPageLoading(false);
+    }
+
+    let cancelled = false;
+
+    const loadLead = async () => {
+      setPageLoading(true);
+      setPageError('');
+
+      try {
+        const freshLead = await fetchLeadById(id);
+
+        if (cancelled) {
+          return;
+        }
+
+        if (!freshLead) {
+          setPageError('Lead not found.');
+          return;
+        }
+
+        dispatch(upsertLead(freshLead));
+      } catch (error) {
+        if (!cancelled) {
+          setPageError(error instanceof Error ? error.message : 'Failed to load lead.');
+        }
+      } finally {
+        if (!cancelled) {
+          setPageLoading(false);
+        }
+      }
+    };
+
+    void loadLead();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dispatch, id]);
+
+  if (pageLoading) {
+    return (
+      <Layout>
+        <div className="text-center py-24">
+          <p className="text-text-secondary text-lg">Loading lead...</p>
+        </div>
+      </Layout>
+    );
+  }
 
   if (!lead) {
     return (
       <Layout>
         <div className="text-center py-24">
-          <p className="text-text-secondary text-lg">Lead not found.</p>
+          <p className="text-text-secondary text-lg">{pageError || 'Lead not found.'}</p>
           <Button variant="ghost" className="mt-4" onClick={() => navigate('/dashboard')}>
             ← Back to Dashboard
           </Button>
@@ -37,25 +98,42 @@ export default function LeadDetailsPage() {
     );
   }
 
-  const handleAddFollowUp = () => {
+  const handleAddFollowUp = async () => {
     if (!comment.trim()) {
       setCommentError('Please enter a comment.');
       return;
     }
-    const fu: FollowUp = {
-      id: uuidv4(),
-      comment: comment.trim(),
-      timestamp: new Date().toISOString(),
-    };
-    dispatch(addFollowUp({ leadId: lead.id, followUp: fu }));
-    setComment('');
+
+    setActionLoading(true);
     setCommentError('');
+
+    try {
+      const fu: FollowUp = await createLeadFollowUp(lead.id, comment.trim());
+      dispatch(addFollowUp({ leadId: lead.id, followUp: fu }));
+      setComment('');
+    } catch (error) {
+      setCommentError(error instanceof Error ? error.message : 'Failed to add follow-up.');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleDrop = () => {
+  const handleDrop = async () => {
     if (!confirmDrop) { setConfirmDrop(true); return; }
-    dispatch(dropLead(lead.id));
-    navigate('/dashboard');
+
+    setActionLoading(true);
+    setPageError('');
+
+    try {
+      await dropLeadById(lead.id);
+      dispatch(dropLead(lead.id));
+      navigate('/dashboard');
+    } catch (error) {
+      setPageError(error instanceof Error ? error.message : 'Failed to drop lead.');
+      setConfirmDrop(false);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const accentColor: Record<string, string> = {
@@ -79,6 +157,12 @@ export default function LeadDetailsPage() {
           className="bg-background-secondary border border-border-subtle rounded-2xl p-6 mb-4"
           style={{ borderTopColor: accentColor[lead.type], borderTopWidth: 3 }}
         >
+          {pageError && (
+            <div className="mb-4 rounded-xl border border-semantic-error/30 bg-semantic-error-bg px-4 py-3">
+              <p className="text-sm text-semantic-error">{pageError}</p>
+            </div>
+          )}
+
           <div className="flex items-start justify-between gap-4 mb-6">
             <div>
               <h1 className="text-2xl font-bold text-text-primary mb-1.5">{lead.name}</h1>
@@ -88,6 +172,7 @@ export default function LeadDetailsPage() {
               variant="danger"
               size="sm"
               onClick={handleDrop}
+              loading={actionLoading}
               icon={<AlertTriangle className="w-3.5 h-3.5" />}
             >
               {confirmDrop ? 'Confirm Drop' : 'Drop Lead'}
@@ -179,6 +264,7 @@ export default function LeadDetailsPage() {
                 <Button
                   size="sm"
                   icon={<Send className="w-3.5 h-3.5" />}
+                  loading={actionLoading}
                   onClick={handleAddFollowUp}
                 >
                   Add Follow-up
