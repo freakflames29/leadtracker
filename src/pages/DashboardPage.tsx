@@ -1,16 +1,17 @@
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { setLeads } from '../store/leadsSlice';
 import Layout from '../components/layout/Layout';
 import LeadCard from '../components/ui/LeadCard';
 import Button from '../components/ui/Button';
+import Input from '../components/ui/Input';
 import { fetchLeads } from '../services/leads';
-import { PlusCircle, Flame, Thermometer, Snowflake, LayoutGrid } from 'lucide-react';
+import { PlusCircle, Flame, Thermometer, Snowflake, LayoutGrid, CalendarDays } from 'lucide-react';
 
 type FilterType = 'All' | 'Hot' | 'Warm' | 'Cold';
 
-const filterConfig: { label: FilterType; icon: React.ReactNode; activeClass: string }[] = [
+const filterConfig: { label: FilterType; icon: ReactNode; activeClass: string }[] = [
   { label: 'All', icon: <LayoutGrid className="w-3.5 h-3.5" />, activeClass: 'bg-background-elevated text-text-primary border-border-default' },
   { label: 'Hot', icon: <Flame className="w-3.5 h-3.5" />, activeClass: 'bg-[#2A1515] text-[#FF8080] border-[#FF5B5B]/40' },
   { label: 'Warm', icon: <Thermometer className="w-3.5 h-3.5" />, activeClass: 'bg-[#2A2010] text-[#FFD080] border-[#FFB347]/40' },
@@ -29,6 +30,7 @@ export default function DashboardPage() {
   const dispatch = useAppDispatch();
   const leads = useAppSelector((s) => s.leads.leads);
   const [filter, setFilter] = useState<FilterType>('All');
+  const [selectedDate, setSelectedDate] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -64,7 +66,10 @@ export default function DashboardPage() {
   }, [dispatch]);
 
   const activeLeads = leads.filter((l) => !l.dropped);
-  const filtered = filter === 'All' ? activeLeads : activeLeads.filter((l) => l.type === filter);
+  const typeFilteredLeads = filter === 'All' ? activeLeads : activeLeads.filter((l) => l.type === filter);
+  const filtered = selectedDate
+    ? typeFilteredLeads.filter((l) => l.followUpDate === selectedDate)
+    : typeFilteredLeads;
 
   const stats = {
     total: activeLeads.length,
@@ -80,7 +85,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Dashboard</h1>
           <p className="text-sm text-text-secondary mt-0.5">
-            {activeLeads.length} active lead{activeLeads.length !== 1 ? 's' : ''}
+            {filtered.length} lead{filtered.length !== 1 ? 's' : ''} shown
           </p>
         </div>
         <Button
@@ -122,38 +127,65 @@ export default function DashboardPage() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex items-center gap-2 mb-6 flex-wrap">
-        {loading ? (
-          filterConfig.map(({ label }) => (
-            <div
-              key={label}
-              className="h-10 w-24 rounded-xl border border-border-subtle bg-background-elevated animate-pulse"
-            />
-          ))
-        ) : (
-          filterConfig.map(({ label, icon, activeClass }) => (
-            <button
-              key={label}
-              onClick={() => setFilter(label)}
-              className={`
-                flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium border transition-all duration-200
-                ${filter === label
-                  ? activeClass
-                  : 'bg-background-elevated border-border-subtle text-text-secondary hover:text-text-primary hover:border-border-default'
-                }
-              `}
-            >
-              {icon}
-              {label}
-              {label !== 'All' && (
-                <span className="text-xs opacity-60 ml-0.5">
-                  ({label === 'Hot' ? stats.hot : label === 'Warm' ? stats.warm : stats.cold})
-                </span>
-              )}
-            </button>
-          ))
-        )}
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex items-center gap-2 flex-wrap">
+          {loading ? (
+            filterConfig.map(({ label }) => (
+              <div
+                key={label}
+                className="h-10 w-24 rounded-xl border border-border-subtle bg-background-elevated animate-pulse"
+              />
+            ))
+          ) : (
+            filterConfig.map(({ label, icon, activeClass }) => (
+              <button
+                key={label}
+                onClick={() => setFilter(label)}
+                className={`
+                  flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium border transition-all duration-200
+                  ${filter === label
+                    ? activeClass
+                    : 'bg-background-elevated border-border-subtle text-text-secondary hover:text-text-primary hover:border-border-default'
+                  }
+                `}
+              >
+                {icon}
+                {label}
+                {label !== 'All' && (
+                  <span className="text-xs opacity-60 ml-0.5">
+                    ({label === 'Hot' ? stats.hot : label === 'Warm' ? stats.warm : stats.cold})
+                  </span>
+                )}
+              </button>
+            ))
+          )}
+        </div>
+
+        <div className="w-full lg:w-[280px]">
+          <Input
+            id="dashboard-followup-date"
+            label="Filter By follow up date"
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            icon={<CalendarDays className="w-4 h-4" />}
+          />
+        </div>
       </div>
+
+      {selectedDate && !loading && (
+        <div className="mb-6 flex items-center justify-between gap-3 rounded-2xl border border-border-subtle bg-background-secondary px-4 py-3">
+          <p className="text-sm text-text-secondary">
+            Showing leads with follow-up date on <span className="font-medium text-text-primary">{selectedDate}</span>.
+          </p>
+          <button
+            onClick={() => setSelectedDate('')}
+            className="text-sm font-medium text-brand-primary transition-colors hover:text-text-primary"
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {/* Lead grid */}
       {error && (
@@ -207,7 +239,11 @@ export default function DashboardPage() {
           </div>
           <h3 className="text-base font-semibold text-text-secondary">No leads found</h3>
           <p className="text-sm text-text-disabled mt-1 mb-6">
-            {filter !== 'All' ? `No ${filter} leads yet.` : 'Start by adding your first lead.'}
+            {selectedDate
+              ? 'No leads match the selected follow-up date.'
+              : filter !== 'All'
+                ? `No ${filter} leads yet.`
+                : 'Start by adding your first lead.'}
           </p>
           <Button icon={<PlusCircle className="w-4 h-4" />} onClick={() => navigate('/add-lead')}>
             Add Lead
