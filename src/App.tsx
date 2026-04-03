@@ -10,6 +10,7 @@ import DashboardPage from './pages/DashboardPage';
 import AddLeadPage from './pages/AddLeadPage';
 import LeadDetailsPage from './pages/LeadDetailsPage';
 import ProfilePage from './pages/ProfilePage';
+import { supabase } from './services/supabase/supabase';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
@@ -17,6 +18,8 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const supa  = supabase
+  console.log("Crazy base>>>>",supa)
   return (
     <BrowserRouter>
       <Routes>
