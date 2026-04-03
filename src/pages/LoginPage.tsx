@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '../store/hooks';
 import { login } from '../store/authSlice';
+import { supabase } from '../services/supabase/supabase';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import { Mail, Lock, TrendingUp } from 'lucide-react';
@@ -37,10 +38,29 @@ export default function LoginPage() {
     e.preventDefault();
     if (!validate()) return;
     setLoading(true);
-    // Simulate network delay
-    await new Promise((r) => setTimeout(r, 800));
-    dispatch(login({ name: email.split('@')[0], email }));
-    navigate('/dashboard');
+    setErrors({});
+    
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        setErrors({ email: error.message });
+        return;
+      }
+
+      if (data.user) {
+        const name = data.user.user_metadata?.full_name || email.split('@')[0];
+        dispatch(login({ name, email: data.user.email || email }));
+        navigate('/dashboard');
+      }
+    } catch (err: any) {
+      setErrors({ email: err.message || 'An unexpected error occurred during sign in.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
