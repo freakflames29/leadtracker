@@ -168,15 +168,17 @@ export default function LeadDetailsPage() {
               <h1 className="text-2xl font-bold text-text-primary mb-1.5">{lead.name}</h1>
               <Badge type={lead.type} />
             </div>
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={handleDrop}
-              loading={actionLoading}
-              icon={<AlertTriangle className="w-3.5 h-3.5" />}
-            >
-              {confirmDrop ? 'Confirm Drop' : 'Drop Lead'}
-            </Button>
+            {!lead.dropped && (
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={handleDrop}
+                loading={actionLoading}
+                icon={<AlertTriangle className="w-3.5 h-3.5" />}
+              >
+                {confirmDrop ? 'Confirm Drop' : 'Drop Lead'}
+              </Button>
+            )}
           </div>
 
           {/* Info grid */}
